@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "agentos-prod",
+    "dev": "agentos-86399",
+    "prod": "agentos-prod"
+  },
+  "targets": {},
+  "etags": {}
+}

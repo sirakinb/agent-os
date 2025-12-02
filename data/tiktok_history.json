@@ -1,0 +1,27 @@
+[
+  {
+    "id": "2c1a0521-8de3-4304-99f0-624640f6da27",
+    "filename": "v12025gd0000d3i4r5fog65ptlerp96g 2.MP4",
+    "fileUri": "https://generativelanguage.googleapis.com/v1beta/files/ogfa90yd1m9y",
+    "analysis": {
+      "hook": "The video starts with a close-up selfie shot of a man walking down the street with the text overlay 'most people still don't realize this', while the audio begins with a personal anecdote: 'so I just got off a call with a good friend of mine...'",
+      "topic": " The accessibility of building software (websites, apps, SaaS) using AI tools and natural language prompting right now.",
+      "style": "Vlog-style, handheld camera, passionate and conversational tone. The pacing is natural with emphasis on specific points, avoiding rapid-fire cuts.",
+      "keyElements": [
+        "Selfie-style camera angle",
+        "Text overlay: 'most people still don't realize this'",
+        "On-screen text highlighting specific URLs: Lovable.dev, Bolt.new, Replit.com",
+        "Urban street background",
+        "Natural lighting"
+      ],
+      "transcriptSummary": "The speaker describes a passionate conversation he had about the current state of technology. He explains that people can literally go to sites like Lovable.dev, Bolt.new, or Replit right now and use natural English language prompts to build fully functional websites, web apps, and mobile apps. He emphasizes that users can create business tools, add paywalls, and build subscription platforms immediately, without needing to wait for future technology."
+    },
+    "stats": {
+      "likes": 8647,
+      "saves": 6570,
+      "comments": 188,
+      "shares": 1125
+    },
+    "timestamp": "2025-11-24T23:33:59.550Z"
+  }
+]
