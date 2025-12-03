@@ -7,14 +7,8 @@ import { createWriteStream } from "fs";
 import { pipeline } from "stream/promises";
 import { Readable } from "stream";
 
-// Increase body size limit for direct uploads (only works locally)
-export const config = {
-    api: {
-        bodyParser: {
-            sizeLimit: "1gb",
-        },
-    },
-};
+// Note: Body size limits in Vercel serverless have hard limits (~4.5MB)
+// For larger files, use Firebase Storage upload path (handled in frontend)
 
 // Helper to download file from URL to temp location
 async function downloadToTemp(url: string, filename: string): Promise<string> {
