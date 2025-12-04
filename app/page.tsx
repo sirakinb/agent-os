@@ -43,7 +43,7 @@ export default function Home() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [currentView, setCurrentView] = useState<"youtube" | "tiktok" | "transcription" | "connect" | "schedule" | "calendar">("youtube");
-  
+
   // Detect if we're on production (Vercel) - files > 4MB need Firebase Storage
   const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1");
 
@@ -92,22 +92,22 @@ export default function Home() {
         // Check if file is large and we're on production
         const FILE_SIZE_THRESHOLD = 4 * 1024 * 1024; // 4MB
         const useFirebaseStorage = isProduction && file.size > FILE_SIZE_THRESHOLD && isFirebaseConfigured;
-        
+
         if (useFirebaseStorage) {
           // Production path: Upload to Firebase Storage first, then process
           console.log("Using Firebase Storage for large file upload...");
           toast.info("Uploading to cloud storage...");
-          
+
           try {
             const { downloadUrl, storagePath } = await uploadToFirebaseStorage(file, (progress) => {
               setUploadProgress(progress);
               console.log(`Upload progress: ${progress.progress.toFixed(1)}%`);
             });
-            
+
             console.log("Firebase upload complete, processing with Gemini...");
             setUploadProgress(null);
             toast.info("Processing video with AI...");
-            
+
             // Now send the Firebase URL to our API for Gemini processing
             const uploadRes = await fetch("/api/upload", {
               method: "POST",
@@ -119,42 +119,42 @@ export default function Home() {
                 mimeType: file.type,
               }),
             });
-            
+
             if (!uploadRes.ok) {
               const errorData = await uploadRes.json();
               throw new Error(errorData.details || "Processing failed");
             }
-            
+
             const data = await uploadRes.json();
             fileUri = data.fileUri;
             mimeType = data.mimeType;
             isGcsUri = data.isGcsUri || false;
             console.log("Gemini processing successful. File URI:", fileUri, "isGcsUri:", isGcsUri);
-            
+
           } catch (storageError) {
             console.error("Firebase Storage error:", storageError);
             throw new Error(`Upload failed: ${storageError instanceof Error ? storageError.message : "Unknown error"}`);
           }
         } else {
           // Local/small file path: Direct upload to API
-        const formData = new FormData();
-        formData.append("file", file);
+          const formData = new FormData();
+          formData.append("file", file);
 
           console.log("Uploading file directly:", file.name);
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
+          const uploadRes = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
 
           if (!uploadRes.ok) {
             const errorData = await uploadRes.json();
             throw new Error(errorData.details || "Upload failed");
           }
-          
-        const data = await uploadRes.json();
-        fileUri = data.fileUri;
-        mimeType = data.mimeType;
-        console.log("Upload successful. File URI:", fileUri);
+
+          const data = await uploadRes.json();
+          fileUri = data.fileUri;
+          mimeType = data.mimeType;
+          console.log("Upload successful. File URI:", fileUri);
         }
 
       } else if (activeTab === "youtube") {
@@ -179,7 +179,11 @@ export default function Home() {
         body: JSON.stringify({ fileUri, mimeType, transcript, isGcsUri }),
       });
 
-      if (!analyzeRes.ok) throw new Error("Analysis failed");
+      if (!analyzeRes.ok) {
+        const errorData = await analyzeRes.json();
+        console.error("Analysis failed details:", errorData);
+        throw new Error(errorData.details || "Analysis failed");
+      }
       const { chapters: rawChapters } = await analyzeRes.json();
       console.log("Raw chapters received:", rawChapters);
 
@@ -383,7 +387,7 @@ export default function Home() {
             <div className="mt-auto p-6 border-t border-neutral-800">
               {user ? (
                 <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                     {user.photoURL ? (
                       <NextImage
                         src={user.photoURL}
@@ -393,8 +397,8 @@ export default function Home() {
                         className="rounded-full"
                       />
                     ) : (
-                <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center">
-                  <User className="w-4 h-4 text-neutral-400" />
+                      <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center">
+                        <User className="w-4 h-4 text-neutral-400" />
                       </div>
                     )}
                     <div className="text-sm">
@@ -418,8 +422,8 @@ export default function Home() {
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
                     <User className="w-4 h-4 text-amber-400" />
-                </div>
-                <div className="text-sm">
+                  </div>
+                  <div className="text-sm">
                     <p className="font-medium text-amber-400">Dev Mode</p>
                     <p className="text-neutral-500 text-xs">Firebase not configured</p>
                   </div>
@@ -584,7 +588,7 @@ export default function Home() {
                         {uploadProgress ? (
                           <Cloud className="w-10 h-10 text-indigo-400" />
                         ) : (
-                        <Sparkles className="w-10 h-10 text-indigo-400 animate-pulse" />
+                          <Sparkles className="w-10 h-10 text-indigo-400 animate-pulse" />
                         )}
                       </div>
                     </div>
@@ -595,7 +599,7 @@ export default function Home() {
                       {status === "optimizing" && "Refining Timestamps..."}
                       {status === "metadata" && "Generating Metadata..."}
                     </h2>
-                    
+
                     {/* Upload Progress Bar */}
                     {uploadProgress && status === "uploading" && (
                       <div className="max-w-md mx-auto mb-6">
@@ -613,7 +617,7 @@ export default function Home() {
                         </div>
                       </div>
                     )}
-                    
+
                     <p className="text-neutral-400 text-lg">
                       {status === "uploading" && (activeTab === "youtube" ? "Getting captions from YouTube" : uploadProgress ? "Uploading to Firebase Storage..." : "Sending to Gemini for AI processing")}
                       {status === "analyzing" && "Extracting key moments and chapters"}
