@@ -53,7 +53,7 @@ if (projectId) {
         });
 
         vertexModel = vertexAI.getGenerativeModel({
-            model: "gemini-3-pro-preview"
+            model: "gemini-3-pro-preview-11-2025"
         });
 
         console.log("Vertex AI initialized for project:", projectId);
