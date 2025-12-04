@@ -8,10 +8,8 @@ const { Client } = require("@google/genai");
 
 // Vertex AI configuration - for production with Firebase Storage GCS URIs
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || "";
-// Gemini 3 requires global endpoint, but we set location to us-central1 and let the SDK handle it
-// or we might need to set 'global' if the new SDK supports it.
-// Based on docs: export GOOGLE_CLOUD_LOCATION=global
-const location = "us-central1";
+// Gemini 3 requires global endpoint
+const location = "global";
 
 // Handle credentials from environment variable (for Vercel)
 // Vertex AI SDK uses Application Default Credentials (ADC)
