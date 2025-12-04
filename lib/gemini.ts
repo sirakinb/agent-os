@@ -52,7 +52,7 @@ if (projectId) {
         genaiClient = new Client({
             vertexAi: true,
             project: projectId,
-            location: 'us-central1', // Try us-central1 first, as global might be inferred or explicit
+            location: 'global',
         });
         console.log("Gen AI Client initialized for project:", projectId);
     } catch (e) {

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
         if (transcript) {
             // Use transcript for analysis
-            const transcriptText = transcript.map((t: any) => `[${ t.start }s] ${ t.text } `).join("\n");
+            const transcriptText = transcript.map((t: any) => "[" + t.start + "s] " + t.text).join("\n");
             promptParts.push(`
         Analyze this video transcript and generate a comprehensive list of timestamps and chapter titles.
         Focus on key topics, visual changes(inferred from context), and important spoken content.
