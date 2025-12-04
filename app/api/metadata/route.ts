@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { genAI, fileManager } from "@/lib/gemini";
+import { genAI, fileManager, vertexModel, isVertexAIConfigured } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
     try {
-        const { fileUri, mimeType, chapterTitles, transcript } = await req.json();
+        const { fileUri, mimeType, chapterTitles, transcript, isGcsUri } = await req.json();
 
         if (!fileUri && !transcript) {
             return NextResponse.json({ error: "No file URI or transcript provided" }, { status: 400 });
         }
 
         // 1. Fetch Autocomplete Suggestions for context (using chapter titles as seeds)
-        // We'll take the first 5 chapters to get a broad sense of keywords
         const seeds = chapterTitles ? chapterTitles.slice(0, 5) : [];
         const suggestionsMap: Record<string, string[]> = {};
 
@@ -32,16 +31,14 @@ export async function POST(req: NextRequest) {
             })
         );
 
-        // 2. Generate Metadata with Gemini 3.0
-        const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
-
         const fixedPrefix = `Join My Community to Level Up ➡ https://www.skool.com/vibecodepioneers
 
 📅 Book a Meeting with Our Team: https://tally.so/r/3NBGBl
 
 Subscribe to my newsletter: https://bajulaiye.beehiiv.com/`;
 
-        let promptParts = [];
+        let promptParts: any[] = [];
+        let useVertexAI = false;
 
         if (transcript) {
             const transcriptText = transcript.map((t: any) => `[${t.start}s] ${t.text}`).join("\n");
@@ -52,11 +49,35 @@ Subscribe to my newsletter: https://bajulaiye.beehiiv.com/`;
          Transcript Context:
          ${transcriptText.substring(0, 50000)}
        `);
+        } else if ((isGcsUri || fileUri?.startsWith("gs://")) && isVertexAIConfigured()) {
+            // Use Vertex AI for Firebase Storage GCS URIs
+            console.log("Using Vertex AI for metadata with GCS URI:", fileUri);
+            useVertexAI = true;
+            promptParts.push({
+                fileData: {
+                    mimeType: mimeType || "video/mp4",
+                    fileUri: fileUri,
+                },
+            });
+            promptParts.push(`
+         You are an expert YouTube SEO strategist.
+         I need you to generate high-performing metadata for this video.
+       `);
+        } else if (isGcsUri || fileUri?.startsWith("gs://")) {
+            // GCS URI but Vertex AI not configured
+            console.error("GCS URI provided but Vertex AI is not configured");
+            return NextResponse.json({
+                error: "Server configuration error: Cannot process Firebase Storage files."
+            }, { status: 500 });
         } else {
-            // Wait for file to be active (just in case, though it should be by now)
+            // Use Gemini File API URI
             let file = await fileManager.getFile(fileUri.split("/").pop()!);
             if (file.state !== "ACTIVE") {
-                // If it's processing, we might fail or wait. Assuming it's active since we just analyzed it.
+                // Wait for file to be active
+                while (file.state === "PROCESSING") {
+                    await new Promise((resolve) => setTimeout(resolve, 2000));
+                    file = await fileManager.getFile(fileUri.split("/").pop()!);
+                }
             }
 
             promptParts.push({
@@ -101,9 +122,21 @@ Subscribe to my newsletter: https://bajulaiye.beehiiv.com/`;
       }
     `);
 
-        const result = await model.generateContent(promptParts);
+        let responseText: string;
 
-        const responseText = result.response.text();
+        if (useVertexAI && vertexModel) {
+            console.log("Calling Vertex AI for metadata generation...");
+            const result = await vertexModel.generateContent({
+                contents: [{ role: "user", parts: promptParts }],
+            });
+            const response = await result.response;
+            responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        } else {
+            const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
+            const result = await model.generateContent(promptParts);
+            responseText = result.response.text();
+        }
+
         const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
 
         let metadata;
