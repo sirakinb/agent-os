@@ -49,11 +49,11 @@ if (projectId) {
     try {
         vertexAI = new VertexAI({
             project: projectId,
-            location,
+            location: 'global',
         });
 
         vertexModel = vertexAI.getGenerativeModel({
-            model: "gemini-3-pro-preview-11-2025"
+            model: "gemini-3-pro-preview"
         });
 
         console.log("Vertex AI initialized for project:", projectId);

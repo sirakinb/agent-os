@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
             responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
         } else {
             // Use Google AI SDK
-            const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview-11-2025" });
+            const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
             const result = await model.generateContent(promptParts);
             responseText = result.response.text();
         }
