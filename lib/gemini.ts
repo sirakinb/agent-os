@@ -1,4 +1,4 @@
-import { VertexAI } from "@google-cloud/vertexai";
+import { VertexAI, HarmCategory, HarmBlockThreshold } from "@google-cloud/vertexai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GoogleAIFileManager } from "@google/generative-ai/server";
 
@@ -6,33 +6,45 @@ import { GoogleAIFileManager } from "@google/generative-ai/server";
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || "";
 const location = process.env.GOOGLE_CLOUD_LOCATION || "us-central1";
 
-// Handle credentials from environment variable (for Vercel)
-// Parse GOOGLE_APPLICATION_CREDENTIALS_JSON if provided
-if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    try {
-        // Write credentials to a temp file for the SDK to pick up
-        // This is a common pattern for serverless environments
-        const fs = require('fs');
-        const path = require('path');
-        const credPath = path.join('/tmp', 'gcp-credentials.json');
-        fs.writeFileSync(credPath, process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-        process.env.GOOGLE_APPLICATION_CREDENTIALS = credPath;
-    } catch (e) {
-        console.error("Failed to write GCP credentials:", e);
-    }
-}
-
 // Initialize Vertex AI if project is configured
 let vertexAI: VertexAI | null = null;
 let vertexModel: ReturnType<VertexAI["getGenerativeModel"]> | null = null;
 
 if (projectId) {
     try {
-        vertexAI = new VertexAI({ project: projectId, location });
-        vertexModel = vertexAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
+        // Parse credentials from JSON string if provided
+        let googleAuthOptions: any = {};
+
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+            try {
+                const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+                googleAuthOptions = {
+                    credentials,
+                    projectId: credentials.project_id || projectId,
+                };
+                console.log("Using credentials from GOOGLE_APPLICATION_CREDENTIALS_JSON");
+            } catch (e) {
+                console.error("Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON:", e);
+            }
+        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            // Use file path if provided (local development)
+            console.log("Using credentials from GOOGLE_APPLICATION_CREDENTIALS file");
+        }
+
+        vertexAI = new VertexAI({
+            project: projectId,
+            location,
+            ...googleAuthOptions
+        });
+
+        vertexModel = vertexAI.getGenerativeModel({
+            model: "gemini-3-pro-preview"
+        });
+
         console.log("Vertex AI initialized for project:", projectId);
     } catch (e) {
         console.error("Failed to initialize Vertex AI:", e);
+        console.error("Error details:", e instanceof Error ? e.message : String(e));
     }
 }
 
