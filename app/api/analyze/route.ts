@@ -84,6 +84,8 @@ export async function POST(req: NextRequest) {
         if (useVertexAI && vertexModel) {
             // Use Vertex AI for GCS URIs
             console.log("Calling Vertex AI generateContent...");
+            console.log("Vertex AI configured:", !!vertexModel);
+            console.log("Prompt parts:", JSON.stringify(promptParts, null, 2));
             const result = await vertexModel.generateContent({
                 contents: [{ role: "user", parts: promptParts }],
             });
@@ -111,6 +113,11 @@ export async function POST(req: NextRequest) {
 
     } catch (error) {
         console.error("Analysis error:", error);
-        return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
+        console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
+        console.error("Error message:", error instanceof Error ? error.message : String(error));
+        return NextResponse.json({
+            error: "Analysis failed",
+            details: error instanceof Error ? error.message : String(error)
+        }, { status: 500 });
     }
 }
