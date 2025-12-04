@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       Do not include any markdown formatting like \`\`\`json. Just the raw JSON.
     `;
 
-        promptParts.push(analysisPrompt);
+        promptParts.push({ text: analysisPrompt });
 
         let responseText: string;
 
