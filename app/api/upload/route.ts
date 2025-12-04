@@ -1,34 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fileManager } from "@/lib/gemini";
-import { writeFile, unlink, mkdir } from "fs/promises";
+import { writeFile, unlink } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { createWriteStream } from "fs";
-import { pipeline } from "stream/promises";
-import { Readable } from "stream";
 
 // Note: Body size limits in Vercel serverless have hard limits (~4.5MB)
 // For larger files, use Firebase Storage upload path (handled in frontend)
-
-// Helper to download file from URL to temp location
-async function downloadToTemp(url: string, filename: string): Promise<string> {
-    const tempDir = join(tmpdir(), "content-studio-uploads");
-    await mkdir(tempDir, { recursive: true });
-    
-    const tempFilePath = join(tempDir, `${Date.now()}-${filename}`);
-    
-    const response = await fetch(url);
-    if (!response.ok || !response.body) {
-        throw new Error(`Failed to download file: ${response.statusText}`);
-    }
-    
-    // Stream the response to a file
-    const writeStream = createWriteStream(tempFilePath);
-    const readable = Readable.fromWeb(response.body as any);
-    await pipeline(readable, writeStream);
-    
-    return tempFilePath;
-}
 
 export async function POST(req: NextRequest) {
     let tempFilePath: string | null = null;
@@ -36,32 +13,28 @@ export async function POST(req: NextRequest) {
     try {
         const contentType = req.headers.get("content-type") || "";
         
-        // Handle Firebase Storage URL upload
+        // Handle Firebase Storage URL - return GCS URI for direct Gemini use
         if (contentType.includes("application/json")) {
-            const { firebaseUrl, fileName, mimeType } = await req.json();
+            const { firebaseUrl, fileName, mimeType, storagePath } = await req.json();
             
-            if (!firebaseUrl) {
-                return NextResponse.json({ error: "No Firebase URL provided" }, { status: 400 });
+            if (!firebaseUrl && !storagePath) {
+                return NextResponse.json({ error: "No Firebase URL or storage path provided" }, { status: 400 });
             }
             
-            console.log("Downloading from Firebase Storage:", fileName);
-            tempFilePath = await downloadToTemp(firebaseUrl, fileName || "video.mp4");
+            // Convert Firebase Storage path to GCS URI for Gemini
+            // Firebase Storage bucket: agentos-prod.firebasestorage.app
+            const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "agentos-prod.firebasestorage.app";
+            const gcsUri = `gs://${bucket}/${storagePath}`;
             
-            console.log("Uploading to Gemini File Manager...");
-            const uploadResponse = await fileManager.uploadFile(tempFilePath, {
-                mimeType: mimeType || "video/mp4",
-                displayName: fileName || "uploaded-video",
-            });
+            console.log("Using GCS URI for Gemini:", gcsUri);
             
-            // Clean up temp file
-            await unlink(tempFilePath);
-            tempFilePath = null;
-            
+            // Return the GCS URI - Gemini can use this directly
             return NextResponse.json({
                 success: true,
-                fileUri: uploadResponse.file.uri,
-                name: uploadResponse.file.name,
-                mimeType: uploadResponse.file.mimeType,
+                fileUri: gcsUri,
+                name: fileName || "uploaded-video",
+                mimeType: mimeType || "video/mp4",
+                isGcsUri: true,
             });
         }
         

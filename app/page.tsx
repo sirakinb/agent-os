@@ -86,7 +86,7 @@ export default function Home() {
       setStatus("uploading");
       setUploadProgress(null);
 
-      let fileUri, mimeType, transcript;
+      let fileUri, mimeType, transcript, isGcsUri = false;
 
       if (activeTab === "upload" && file) {
         // Check if file is large and we're on production
@@ -99,7 +99,7 @@ export default function Home() {
           toast.info("Uploading to cloud storage...");
           
           try {
-            const { downloadUrl } = await uploadToFirebaseStorage(file, (progress) => {
+            const { downloadUrl, storagePath } = await uploadToFirebaseStorage(file, (progress) => {
               setUploadProgress(progress);
               console.log(`Upload progress: ${progress.progress.toFixed(1)}%`);
             });
@@ -114,6 +114,7 @@ export default function Home() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 firebaseUrl: downloadUrl,
+                storagePath: storagePath,
                 fileName: file.name,
                 mimeType: file.type,
               }),
@@ -127,7 +128,8 @@ export default function Home() {
             const data = await uploadRes.json();
             fileUri = data.fileUri;
             mimeType = data.mimeType;
-            console.log("Gemini processing successful. File URI:", fileUri);
+            isGcsUri = data.isGcsUri || false;
+            console.log("Gemini processing successful. File URI:", fileUri, "isGcsUri:", isGcsUri);
             
           } catch (storageError) {
             console.error("Firebase Storage error:", storageError);
@@ -170,11 +172,11 @@ export default function Home() {
       }
 
       setStatus("analyzing");
-      console.log("Starting Gemini analysis...");
+      console.log("Starting Gemini analysis...", { fileUri, mimeType, isGcsUri });
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileUri, mimeType, transcript }),
+        body: JSON.stringify({ fileUri, mimeType, transcript, isGcsUri }),
       });
 
       if (!analyzeRes.ok) throw new Error("Analysis failed");

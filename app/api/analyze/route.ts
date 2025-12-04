@@ -3,14 +3,14 @@ import { genAI, fileManager } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
     try {
-        const { fileUri, mimeType, transcript } = await req.json();
+        const { fileUri, mimeType, transcript, isGcsUri } = await req.json();
 
         if (!fileUri && !transcript) {
             return NextResponse.json({ error: "No file URI or transcript provided" }, { status: 400 });
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
-        let promptParts = [];
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        let promptParts: any[] = [];
 
         if (transcript) {
             // Use transcript for analysis
@@ -22,8 +22,17 @@ export async function POST(req: NextRequest) {
         Transcript:
         ${transcriptText}
       `);
+        } else if (isGcsUri || fileUri.startsWith("gs://")) {
+            // Use GCS URI directly - for large files uploaded to Firebase Storage
+            console.log("Using GCS URI directly:", fileUri);
+            promptParts.push({
+                fileData: {
+                    mimeType: mimeType || "video/mp4",
+                    fileUri: fileUri,
+                },
+            });
         } else {
-            // Use file for analysis
+            // Use Gemini File API URI
             // Wait for file to be active
             let file = await fileManager.getFile(fileUri.split("/").pop()!);
             while (file.state === "PROCESSING") {
