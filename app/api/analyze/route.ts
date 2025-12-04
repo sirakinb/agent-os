@@ -85,7 +85,13 @@ export async function POST(req: NextRequest) {
             // Use Vertex AI for GCS URIs
             console.log("Calling Vertex AI generateContent...");
             console.log("Vertex AI configured:", !!vertexModel);
-            console.log("Prompt parts:", JSON.stringify(promptParts, null, 2));
+
+            // Debug info
+            const fs = require('fs');
+            const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+            const credFileExists = credPath ? fs.existsSync(credPath) : false;
+            console.log("Cred path:", credPath, "Exists:", credFileExists);
+
             const result = await vertexModel.generateContent({
                 contents: [{ role: "user", parts: promptParts }],
             });
@@ -113,11 +119,23 @@ export async function POST(req: NextRequest) {
 
     } catch (error) {
         console.error("Analysis error:", error);
-        console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
-        console.error("Error message:", error instanceof Error ? error.message : String(error));
+
+        // Gather debug info
+        const fs = require('fs');
+        const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        const credFileExists = credPath ? fs.existsSync(credPath) : false;
+        const envJsonLen = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ? process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON.length : 0;
+
         return NextResponse.json({
             error: "Analysis failed",
-            details: error instanceof Error ? error.message : String(error)
+            details: error instanceof Error ? error.message : String(error),
+            debug: {
+                credPath,
+                credFileExists,
+                envJsonLen,
+                projectId: process.env.GOOGLE_CLOUD_PROJECT,
+                location: process.env.GOOGLE_CLOUD_LOCATION
+            }
         }, { status: 500 });
     }
 }
