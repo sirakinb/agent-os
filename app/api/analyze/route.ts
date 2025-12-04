@@ -81,10 +81,9 @@ export async function POST(req: NextRequest) {
 
         let responseText: string;
 
-        if (useVertexAI && vertexModel) {
-            // Use Vertex AI for GCS URIs
-            console.log("Calling Vertex AI generateContent...");
-            console.log("Vertex AI configured:", !!vertexModel);
+        if (useVertexAI && genaiClient) {
+            // Use new Gen AI SDK for Gemini 3
+            console.log("Calling Gen AI SDK (Gemini 3)...");
 
             // Debug info
             const fs = require('fs');
@@ -92,14 +91,33 @@ export async function POST(req: NextRequest) {
             const credFileExists = credPath ? fs.existsSync(credPath) : false;
             console.log("Cred path:", credPath, "Exists:", credFileExists);
 
-            const result = await vertexModel.generateContent({
-                contents: [{ role: "user", parts: promptParts }],
+            const response = await genaiClient.models.generateContent({
+                model: 'gemini-3-pro-preview',
+                contents: promptParts.map(p => {
+                    // Convert to new SDK format if needed
+                    if (typeof p === 'string') {
+                        return { role: 'user', parts: [{ text: p }] };
+                    }
+                    if (p.fileData) {
+                        return {
+                            role: 'user',
+                            parts: [{ fileData: { mimeType: p.fileData.mimeType, fileUri: p.fileData.fileUri } }]
+                        };
+                    }
+                    if (p.text) {
+                        return {
+                            role: 'user',
+                            parts: [{ text: p.text }]
+                        };
+                    }
+                    return { role: 'user', parts: [p] }; // Fallback
+                }).flatMap(p => p.parts), // Flatten parts
             });
-            const response = await result.response;
-            responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+            responseText = response.text();
         } else {
-            // Use Google AI SDK
-            const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
+            // Use Google AI SDK (Legacy)
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }); // Fallback to stable for non-Vertex
             const result = await model.generateContent(promptParts);
             responseText = result.response.text();
         }
