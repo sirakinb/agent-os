@@ -11,14 +11,33 @@ const location = process.env.GOOGLE_CLOUD_LOCATION || "us-central1";
 // Handle credentials from environment variable (for Vercel)
 // Vertex AI SDK uses Application Default Credentials (ADC)
 // We need to write the JSON to a file and set GOOGLE_APPLICATION_CREDENTIALS
-if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+// Handle credentials from environment variable (for Vercel)
+// Vertex AI SDK uses Application Default Credentials (ADC)
+// We need to write the JSON to a file and set GOOGLE_APPLICATION_CREDENTIALS
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
     try {
+        console.log("Found GOOGLE_APPLICATION_CREDENTIALS_JSON, length:", process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON.length);
         const credPath = join('/tmp', 'gcp-credentials.json');
         writeFileSync(credPath, process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
         process.env.GOOGLE_APPLICATION_CREDENTIALS = credPath;
         console.log("Wrote GCP credentials to:", credPath);
+
+        // Verify file exists
+        const fs = require('fs');
+        if (fs.existsSync(credPath)) {
+            console.log("Credential file verified at:", credPath, "Size:", fs.statSync(credPath).size);
+        } else {
+            console.error("Credential file NOT found after writing!");
+        }
     } catch (e) {
         console.error("Failed to write GCP credentials:", e);
+    }
+} else {
+    console.log("GOOGLE_APPLICATION_CREDENTIALS_JSON not found in env");
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        console.log("Using existing GOOGLE_APPLICATION_CREDENTIALS:", process.env.GOOGLE_APPLICATION_CREDENTIALS);
+    } else {
+        console.warn("No credentials found in environment!");
     }
 }
 
