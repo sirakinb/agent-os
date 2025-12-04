@@ -92,27 +92,16 @@ if (useVertexAI && genaiClient) {
     const credFileExists = credPath ? fs.existsSync(credPath) : false;
     console.log("Cred path:", credPath, "Exists:", credFileExists);
 
+    const parts = promptParts.map(p => {
+        if (typeof p === 'string') return { text: p };
+        if (p.fileData) return { fileData: { mimeType: p.fileData.mimeType, fileUri: p.fileData.fileUri } };
+        if (p.text) return { text: p.text };
+        return p;
+    });
+
     const response = await genaiClient.models.generateContent({
         model: 'gemini-3-pro-preview',
-        contents: promptParts.map(p => {
-            // Convert to new SDK format if needed
-            if (typeof p === 'string') {
-                return { role: 'user', parts: [{ text: p }] };
-            }
-            if (p.fileData) {
-                return {
-                    role: 'user',
-                    parts: [{ fileData: { mimeType: p.fileData.mimeType, fileUri: p.fileData.fileUri } }]
-                };
-            }
-            if (p.text) {
-                return {
-                    role: 'user',
-                    parts: [{ text: p.text }]
-                };
-            }
-            return { role: 'user', parts: [p] }; // Fallback
-        }).flatMap(p => p.parts), // Flatten parts
+        contents: [{ role: 'user', parts: parts }],
     });
 
     responseText = response.text();
