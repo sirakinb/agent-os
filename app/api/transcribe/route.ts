@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         }
 
         // 2. Transcribe with Gemini
-        const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
         const result = await model.generateContent([
             {
                 fileData: {

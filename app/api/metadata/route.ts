@@ -132,7 +132,7 @@ Subscribe to my newsletter: https://bajulaiye.beehiiv.com/`;
             const response = await result.response;
             responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
         } else {
-            const model = genAI.getGenerativeModel({ model: "gemini-3-pro-preview" });
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
             const result = await model.generateContent(promptParts);
             responseText = result.response.text();
         }
