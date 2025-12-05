@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
             // DIRECT GEMINI 3 for File API (since it supports it)
             console.log("Using Direct Gemini 3 for File API...");
             const response = await genaiClient.models.generateContent({
-                model: 'gemini-3-pro-preview',
+                model: 'gemini-pro',
                 contents: [{
                     role: 'user',
                     parts: [

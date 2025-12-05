@@ -65,12 +65,12 @@ if (projectId) {
             location: location,
         });
 
-        // Use Gemini 1.5 Pro (stable) for robust video processing and GCS access
+        // Use Gemini 2.0 Flash (stable) for video processing and GCS access
         vertexModel = vertexAI.getGenerativeModel({
-            model: "gemini-1.5-pro"
+            model: "gemini-2.0-flash-001"
         });
 
-        console.log("Vertex AI initialized (Gemini 1.5 Pro)");
+        console.log("Vertex AI initialized (Gemini 2.0 Flash)");
     } catch (e) {
         console.error("Failed to initialize Vertex AI:", e);
     }
