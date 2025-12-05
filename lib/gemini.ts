@@ -45,6 +45,7 @@ let genaiClient: any = null;
 const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
 
 try {
+    console.log("Initializing Gen AI Client with API Key length:", apiKey.length);
     // Initialize with API Key for Google AI Studio access (Gemini 3)
     genaiClient = new Client({
         apiKey: apiKey,
