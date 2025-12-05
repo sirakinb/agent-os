@@ -30,6 +30,7 @@ export default function ConnectSocials() {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -253,9 +254,20 @@ export default function ConnectSocials() {
                     className="bg-neutral-950/50 border border-neutral-800 rounded-2xl p-5 flex items-center justify-between"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Instagram className="w-6 h-6 text-white" />
-                      </div>
+                      {account.profilePicture && !failedImages.has(account._id) ? (
+                        <img
+                          src={account.profilePicture}
+                          alt={account.displayName || account.username || ""}
+                          className="w-12 h-12 rounded-full object-cover flex-shrink-0 bg-neutral-800"
+                          onError={() => {
+                            setFailedImages(prev => new Set(prev).add(account._id));
+                          }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Instagram className="w-6 h-6 text-white" />
+                        </div>
+                      )}
                       <div>
                         <h3 className="font-semibold text-white">
                           {account.displayName || account.username || "Instagram Account"}
