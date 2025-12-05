@@ -8,8 +8,7 @@ const { Client } = require("@google/genai");
 
 // Vertex AI configuration - for production with Firebase Storage GCS URIs
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || "";
-// Gemini 3 requires global endpoint
-const location = "global";
+const location = "us-central1";
 
 // Handle credentials from environment variable (for Vercel)
 // Vertex AI SDK uses Application Default Credentials (ADC)
@@ -41,24 +40,21 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
     }
 }
 
-// Initialize new Gen AI Client (supports Gemini 3)
+// Initialize new Gen AI Client (supports Gemini 3 via Google AI Studio)
 let genaiClient: any = null;
+const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
 
-if (projectId) {
-    try {
-        // The new SDK client initialization
-        genaiClient = new Client({
-            vertexAi: true,
-            project: projectId,
-            location: 'global',
-        });
-        console.log("Gen AI Client initialized for project:", projectId);
-    } catch (e) {
-        console.error("Failed to initialize Gen AI Client:", e);
-    }
+try {
+    // Initialize with API Key for Google AI Studio access (Gemini 3)
+    genaiClient = new Client({
+        apiKey: apiKey,
+    });
+    console.log("Gen AI Client initialized (Google AI Studio)");
+} catch (e) {
+    console.error("Failed to initialize Gen AI Client:", e);
 }
 
-// Legacy Vertex AI SDK (keeping for now just in case, but likely replacing usage)
+// Legacy Vertex AI SDK - for GCS File Access (The Eyes)
 let vertexAI: VertexAI | null = null;
 let vertexModel: ReturnType<VertexAI["getGenerativeModel"]> | null = null;
 
@@ -66,21 +62,21 @@ if (projectId) {
     try {
         vertexAI = new VertexAI({
             project: projectId,
-            location: 'global', // We tried global here for old SDK
+            location: location,
         });
 
+        // Use Gemini 1.5 Pro for robust video processing and GCS access
         vertexModel = vertexAI.getGenerativeModel({
-            model: "gemini-3-pro-preview"
+            model: "gemini-1.5-pro-002"
         });
 
-        console.log("Legacy Vertex AI initialized");
+        console.log("Vertex AI initialized (Gemini 1.5 Pro)");
     } catch (e) {
-        console.error("Failed to initialize Legacy Vertex AI:", e);
+        console.error("Failed to initialize Vertex AI:", e);
     }
 }
 
 // Legacy Google AI SDK - for local development and Gemini File API uploads
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
 export const genAI = new GoogleGenerativeAI(apiKey);
 export const fileManager = new GoogleAIFileManager(apiKey);
 
@@ -88,4 +84,4 @@ export const fileManager = new GoogleAIFileManager(apiKey);
 export { vertexAI, vertexModel, genaiClient };
 
 // Helper to check if Vertex AI is configured
-export const isVertexAIConfigured = () => !!projectId && !!genaiClient;
+export const isVertexAIConfigured = () => !!projectId && !!vertexModel;
