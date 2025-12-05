@@ -70,29 +70,26 @@ export async function GET(req: NextRequest) {
       headers: {
         Authorization: `Bearer ${GETLATE_API_KEY}`,
       },
-      redirect: "manual", // Don't follow redirects, we want the URL
     });
 
-    // If GetLate returns a redirect, extract the URL
-    const redirectUrl = connectRes.headers.get("location");
-
-    if (redirectUrl) {
-      return NextResponse.json({ url: redirectUrl });
-    }
-
-    // If not a redirect, try to get URL from response body
     if (connectRes.ok) {
       const data = await connectRes.json();
+      // GetLate returns { authUrl: "https://instagram.com/oauth/...", state: "..." }
+      if (data.authUrl) {
+        return NextResponse.json({ url: data.authUrl });
+      }
       if (data.url) {
         return NextResponse.json({ url: data.url });
       }
     }
 
-    // Fallback: Return the connect URL for client to open directly
+    // If request failed, log error
+    const errorText = await connectRes.text();
+    console.error("GetLate connect error:", errorText);
+
     return NextResponse.json({
-      url: connectUrl,
-      message: "Open this URL to connect your account"
-    });
+      error: "Failed to get OAuth URL from GetLate"
+    }, { status: 500 });
 
   } catch (error) {
     console.error("Connect error:", error);
