@@ -42,6 +42,7 @@ export default function ContentCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchPosts = useCallback(async () => {
@@ -286,11 +287,12 @@ export default function ContentCalendar() {
                 return (
                   <div
                     key={index}
+                    onClick={() => day && setSelectedDate(day)}
                     className={cn(
-                      "min-h-[120px] p-2 rounded-xl border transition-colors",
+                      "min-h-[120px] p-2 rounded-xl border transition-colors cursor-pointer",
                       day
                         ? "border-neutral-800 hover:border-neutral-700 bg-neutral-900/30"
-                        : "border-transparent",
+                        : "border-transparent cursor-default",
                       isToday && "border-pink-500/50 bg-pink-500/5"
                     )}
                   >
@@ -503,6 +505,123 @@ export default function ContentCalendar() {
                     Close
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Day Detail Modal */}
+      <AnimatePresence>
+        {selectedDate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setSelectedDate(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-neutral-900 border border-neutral-800 rounded-3xl max-w-lg w-full max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-neutral-800">
+                <h3 className="text-xl font-bold text-white">
+                  {selectedDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </h3>
+                <p className="text-neutral-400 text-sm mt-1">
+                  {getPostsForDate(selectedDate).length} scheduled posts
+                </p>
+              </div>
+
+              <div className="p-6 space-y-3">
+                {getPostsForDate(selectedDate).length === 0 ? (
+                  <div className="text-center py-8">
+                    <CalendarIcon className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
+                    <p className="text-neutral-400">No posts scheduled for this day</p>
+                  </div>
+                ) : (
+                  getPostsForDate(selectedDate)
+                    .sort((a, b) => new Date(a.scheduledFor).getTime() - new Date(b.scheduledFor).getTime())
+                    .map((post) => (
+                      <div
+                        key={post._id}
+                        className="bg-neutral-950/50 border border-neutral-800 rounded-xl p-4 flex items-center gap-4 hover:border-neutral-700 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedDate(null);
+                          setSelectedPost(post);
+                        }}
+                      >
+                        {/* Time */}
+                        <div className="text-center flex-shrink-0 w-16">
+                          <p className="text-lg font-bold text-white">
+                            {new Date(post.scheduledFor).toLocaleTimeString("en-US", {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+
+                        {/* Media Preview */}
+                        <div className="w-12 h-12 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
+                          {post.mediaUrls && post.mediaUrls.length > 0 ? (
+                            <img
+                              src={post.mediaUrls[0]}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="w-5 h-5 text-neutral-600" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm truncate">
+                            {post.content || "No caption"}
+                          </p>
+                          {getStatusBadge(post.status)}
+                        </div>
+
+                        {/* Delete button for scheduled posts */}
+                        {post.status === "scheduled" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deletePost(post._id);
+                            }}
+                            disabled={deletingId === post._id}
+                            className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                          >
+                            {deletingId === post._id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    ))
+                )}
+              </div>
+
+              <div className="p-6 border-t border-neutral-800">
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className="w-full px-4 py-3 bg-white/5 border border-neutral-700 rounded-xl font-medium text-white hover:bg-white/10 transition-colors"
+                >
+                  Close
+                </button>
               </div>
             </motion.div>
           </motion.div>

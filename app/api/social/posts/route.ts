@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
             ...p,
             platformSpecificData: {
               ...p.platformSpecificData,
-              mediaType: "STORIES",
+              contentType: "story",
               ...platformSpecificData,
             },
           };

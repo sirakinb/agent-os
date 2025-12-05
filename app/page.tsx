@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import NextImage from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileVideo, CheckCircle, Loader2, Sparkles, Copy, Type, Image as ImageIcon, FileText, Tag, User, PanelLeftClose, PanelLeftOpen, Link2, Calendar, Send, LogOut, Cloud } from "lucide-react";
@@ -42,7 +42,24 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"upload" | "youtube">("upload");
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentView, setCurrentView] = useState<"youtube" | "tiktok" | "transcription" | "connect" | "schedule" | "calendar">("youtube");
+
+  // Initialize currentView from localStorage if available
+  const [currentView, setCurrentView] = useState<"youtube" | "tiktok" | "transcription" | "connect" | "schedule" | "calendar">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("agentos-currentView");
+      if (saved && ["youtube", "tiktok", "transcription", "connect", "schedule", "calendar"].includes(saved)) {
+        return saved as "youtube" | "tiktok" | "transcription" | "connect" | "schedule" | "calendar";
+      }
+    }
+    return "youtube";
+  });
+
+  // Persist currentView to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("agentos-currentView", currentView);
+    }
+  }, [currentView]);
 
   // Detect if we're on production (Vercel) - files > 4MB need Firebase Storage
   const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1");
