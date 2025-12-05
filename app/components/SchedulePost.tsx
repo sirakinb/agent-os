@@ -195,7 +195,7 @@ export default function SchedulePost() {
         }));
 
       const payload: any = {
-        content: caption,
+        content: caption || (postType === "story" ? "Story" : ""),
         platforms: [
           {
             platform: "instagram",

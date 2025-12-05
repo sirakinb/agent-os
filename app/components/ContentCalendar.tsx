@@ -56,6 +56,7 @@ export default function ContentCalendar() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const fetchPosts = useCallback(async () => {
     setIsLoading(true);
@@ -386,14 +387,15 @@ export default function ContentCalendar() {
                     >
                       {/* Media Preview */}
                       <div className="w-16 h-16 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
-                        {getPostThumbnail(post) ? (
+                        {getPostThumbnail(post) && !failedImages.has(post._id) ? (
                           <img
                             src={getPostThumbnail(post)!}
                             alt=""
                             className="w-full h-full object-cover"
+                            onError={() => setFailedImages(prev => new Set(prev).add(post._id))}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-full h-full flex items-center justify-center bg-neutral-800">
                             <ImageIcon className="w-6 h-6 text-neutral-600" />
                           </div>
                         )}
@@ -463,12 +465,13 @@ export default function ContentCalendar() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Media */}
-              {getPostThumbnail(selectedPost) && (
+              {getPostThumbnail(selectedPost) && !failedImages.has(selectedPost._id) ? (
                 <div className="aspect-square bg-neutral-950 relative">
                   <img
                     src={getPostThumbnail(selectedPost)!}
                     alt=""
                     className="w-full h-full object-cover"
+                    onError={() => setFailedImages(prev => new Set(prev).add(selectedPost._id))}
                   />
                   {((selectedPost.mediaUrls && selectedPost.mediaUrls.length > 1) ||
                     (selectedPost.mediaItems && selectedPost.mediaItems.length > 1)) && (
@@ -476,6 +479,10 @@ export default function ContentCalendar() {
                         +{(selectedPost.mediaUrls?.length || selectedPost.mediaItems?.length || 1) - 1} more
                       </div>
                     )}
+                </div>
+              ) : (
+                <div className="aspect-square bg-neutral-950 flex items-center justify-center">
+                  <ImageIcon className="w-12 h-12 text-neutral-700" />
                 </div>
               )}
 
@@ -606,14 +613,15 @@ export default function ContentCalendar() {
 
                         {/* Media Preview */}
                         <div className="w-12 h-12 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
-                          {getPostThumbnail(post) ? (
+                          {getPostThumbnail(post) && !failedImages.has(post._id) ? (
                             <img
                               src={getPostThumbnail(post)!}
                               alt=""
                               className="w-full h-full object-cover"
+                              onError={() => setFailedImages(prev => new Set(prev).add(post._id))}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-full h-full flex items-center justify-center bg-neutral-800">
                               <ImageIcon className="w-5 h-5 text-neutral-600" />
                             </div>
                           )}
