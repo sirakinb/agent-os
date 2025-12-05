@@ -50,7 +50,7 @@ try {
     genaiClient = new Client({
         apiKey: apiKey,
     });
-    console.log("Gen AI Client initialized (Google AI Studio)");
+    console.log("Gen AI Client initialized (Google AI Studio - Gemini 3 Ready)");
 } catch (e) {
     console.error("Failed to initialize Gen AI Client:", e);
 }
