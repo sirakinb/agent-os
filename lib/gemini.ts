@@ -65,9 +65,9 @@ if (projectId) {
             location: location,
         });
 
-        // Use Gemini 1.5 Pro for robust video processing and GCS access
+        // Use Gemini 1.5 Pro (stable) for robust video processing and GCS access
         vertexModel = vertexAI.getGenerativeModel({
-            model: "gemini-1.5-pro-002"
+            model: "gemini-1.5-pro"
         });
 
         console.log("Vertex AI initialized (Gemini 1.5 Pro)");
