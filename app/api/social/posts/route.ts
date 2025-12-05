@@ -72,6 +72,20 @@ export async function POST(request: NextRequest) {
         }
         return p;
       });
+    } else if (postType === "story") {
+      postPayload.platforms = postPayload.platforms.map((p: any) => {
+        if (p.platform === "instagram") {
+          return {
+            ...p,
+            platformSpecificData: {
+              ...p.platformSpecificData,
+              mediaType: "STORIES",
+              ...platformSpecificData,
+            },
+          };
+        }
+        return p;
+      });
     }
 
     const response = await fetch(`${GETLATE_BASE_URL}/posts`, {

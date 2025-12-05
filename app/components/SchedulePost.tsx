@@ -207,6 +207,8 @@ export default function SchedulePost() {
 
       if (postType === "reel") {
         payload.postType = "reel";
+      } else if (postType === "story") {
+        payload.postType = "story";
       }
 
       const response = await fetch("/api/social/posts", {
