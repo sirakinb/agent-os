@@ -458,24 +458,41 @@ export default function SchedulePost() {
             )}
           </div>
 
-          {/* Caption */}
-          <div className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-6">
-            <label className="block text-sm font-medium text-neutral-400 mb-4">
-              Caption
-            </label>
-            <textarea
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="Write your caption here..."
-              rows={6}
-              className="w-full bg-neutral-950/50 border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder:text-neutral-600 focus:outline-none focus:border-pink-500/50 resize-none transition-colors"
-            />
-            <div className="flex justify-between items-center mt-3">
-              <p className="text-xs text-neutral-500">
-                {caption.length} / 2,200 characters
-              </p>
+          {/* Caption - Not available for Stories */}
+          {postType !== "story" && (
+            <div className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-6">
+              <label className="block text-sm font-medium text-neutral-400 mb-4">
+                Caption
+              </label>
+              <textarea
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="Write your caption here..."
+                rows={6}
+                className="w-full bg-neutral-950/50 border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder:text-neutral-600 focus:outline-none focus:border-pink-500/50 resize-none transition-colors"
+              />
+              <div className="flex justify-between items-center mt-3">
+                <p className="text-xs text-neutral-500">
+                  {caption.length} / 2,200 characters
+                </p>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Story Notice */}
+          {postType === "story" && (
+            <div className="bg-neutral-900/30 border border-neutral-800 rounded-3xl p-6">
+              <div className="flex items-center gap-3 text-neutral-400">
+                <div className="p-2 bg-pink-500/10 rounded-lg">
+                  <ImageIcon className="w-5 h-5 text-pink-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">Stories don't support captions</p>
+                  <p className="text-sm">Add text overlays directly to your image or video instead.</p>
+                </div>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* Sidebar - Schedule */}
