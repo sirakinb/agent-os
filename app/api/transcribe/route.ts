@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { vertexModel, isVertexAIConfigured, genaiClient } from "@/lib/gemini";
+import { vertexModel, isVertexAIConfigured } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
     try {
@@ -11,65 +11,80 @@ export async function POST(req: NextRequest) {
 
         // Step 1: Transcribe with Vertex AI (The Eyes - can read GCS)
         if ((isGcsUri || fileUri.startsWith("gs://")) && isVertexAIConfigured() && vertexModel) {
-            console.log("Step 1: Transcribing video with Vertex AI (Gemini 2.0 Flash)...");
+            console.log("Step 1: Transcribing video with Vertex AI...");
 
-            const transcriptionPrompt = `
-            Transcribe this entire video accurately.
+            // First, get the raw transcript
+            const transcriptPrompt = `
+            Transcribe this entire video word-for-word.
             
-            For the transcript:
-            - Include speaker labels if multiple speakers are detected (e.g., "Speaker 1:", "Speaker 2:")
-            - Add paragraph breaks where there are natural pauses or topic changes
-            - Maintain the exact words spoken, including filler words like "um", "uh" if present
-            
-            For the SRT:
-            - Use standard SRT format with sequential numbering
-            - Each subtitle should be 1-3 lines max
-            - Timestamps should be accurate in HH:MM:SS,mmm format
-            - Keep each caption to about 42 characters per line for readability
-            
-            Return a JSON object with two fields:
-            {
-                "transcript": "The full transcript as continuous text with paragraph breaks",
-                "srt": "The complete SRT file content as a string"
-            }
-            
-            Do not include any markdown formatting. Just the raw JSON.
+            Rules:
+            - Include ALL spoken words exactly as said
+            - Add paragraph breaks where there are natural pauses (3+ seconds) or topic changes
+            - Include speaker labels if multiple speakers (e.g., "Speaker 1:", "Speaker 2:")
+            - DO NOT include timestamps in this transcript
+            - DO NOT include any markdown or formatting
+            - Just output the plain text transcript
             `;
 
-            const result = await vertexModel.generateContent({
+            console.log("Getting transcript...");
+            const transcriptResult = await vertexModel.generateContent({
                 contents: [{
                     role: "user",
                     parts: [
                         { fileData: { mimeType: mimeType || "video/mp4", fileUri: fileUri } },
-                        { text: transcriptionPrompt }
+                        { text: transcriptPrompt }
                     ]
                 }],
             });
 
-            const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            console.log("Transcription complete, response length:", responseText.length);
+            const transcript = transcriptResult.response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            console.log("Transcript received, length:", transcript.length);
 
-            // Parse the response
-            let data;
-            try {
-                const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-                data = JSON.parse(cleanedText);
-            } catch (e) {
-                console.error("Failed to parse transcription JSON, attempting fallback", e);
-                // Fallback: treat entire response as transcript
-                data = {
-                    transcript: responseText,
-                    srt: ""
-                };
-            }
+            // Now generate SRT separately
+            const srtPrompt = `
+            Generate SRT subtitles for this video.
+            
+            Requirements:
+            - Use standard SRT format with sequential numbering starting at 1
+            - Timestamps in format: HH:MM:SS,mmm --> HH:MM:SS,mmm
+            - Each subtitle block should be 1-2 lines max
+            - Keep each line under 42 characters for readability
+            - Include accurate timing synchronized with the speech
+            
+            Example format:
+            1
+            00:00:00,000 --> 00:00:02,500
+            Hello and welcome to
 
-            // Optional Step 2: Use Gemini 3 to improve/format the transcript
-            // (Skipped for now since Vertex AI already produces good results)
+            2
+            00:00:02,500 --> 00:00:05,000
+            this video about coding.
+
+            Output ONLY the SRT content, nothing else. No explanations, no markdown.
+            `;
+
+            console.log("Generating SRT...");
+            const srtResult = await vertexModel.generateContent({
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { fileData: { mimeType: mimeType || "video/mp4", fileUri: fileUri } },
+                        { text: srtPrompt }
+                    ]
+                }],
+            });
+
+            let srt = srtResult.response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+            // Clean up SRT - remove any markdown formatting
+            srt = srt.replace(/```srt/gi, '').replace(/```/g, '').trim();
+
+            console.log("SRT received, length:", srt.length);
 
             return NextResponse.json({
                 success: true,
-                transcript: data.transcript,
-                srt: data.srt
+                transcript: transcript.trim(),
+                srt: srt
             });
 
         } else {
