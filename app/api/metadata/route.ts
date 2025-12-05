@@ -89,7 +89,7 @@ Subscribe to my newsletter: https://bajulaiye.beehiiv.com/`;
                     ]
                 }],
             });
-            const responseText = response.text();
+            const responseText = response.text || "";
             const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
             let metadata;
             try { metadata = JSON.parse(cleanedText); } catch (e) { metadata = {}; }
@@ -138,7 +138,7 @@ Subscribe to my newsletter: https://bajulaiye.beehiiv.com/`;
             contents: [{ role: 'user', parts: [{ text: metadataPrompt }] }],
         });
 
-        const responseText = response.text();
+        const responseText = response.text || "";
         const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
 
         let metadata;

@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
             // We can just return this result, but we need to format it.
             // Let's just set videoContext to null and handle it in Step 2 logic
             // Actually, let's just do the generation here and return.
-            const responseText = response.text();
+            const responseText = response.text || "";
             const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
             let chapters;
             try { chapters = JSON.parse(cleanedText); } catch (e) { chapters = []; }
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
             contents: [{ role: 'user', parts: [{ text: analysisPrompt }] }],
         });
 
-        const responseText = response.text();
+        const responseText = response.text || "";
         const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
 
         let chapters;
