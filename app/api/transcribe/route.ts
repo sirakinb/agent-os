@@ -1,84 +1,87 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { GoogleAIFileManager, FileState } from "@google/generative-ai/server";
-import fs from "fs";
-import path from "path";
-
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
-const fileManager = new GoogleAIFileManager(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
+import { vertexModel, isVertexAIConfigured, genaiClient } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
     try {
-        const formData = await req.formData();
-        const file = formData.get("file") as File;
+        const { fileUri, mimeType, isGcsUri } = await req.json();
 
-        if (!file) {
-            return NextResponse.json({ error: "No file provided" }, { status: 400 });
+        if (!fileUri) {
+            return NextResponse.json({ error: "No file URI provided" }, { status: 400 });
         }
 
-        // 1. Upload to Gemini
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const tempFilePath = path.join("/tmp", `transcribe_${Date.now()}_${file.name}`);
-        fs.writeFileSync(tempFilePath, buffer);
+        // Step 1: Transcribe with Vertex AI (The Eyes - can read GCS)
+        if ((isGcsUri || fileUri.startsWith("gs://")) && isVertexAIConfigured() && vertexModel) {
+            console.log("Step 1: Transcribing video with Vertex AI (Gemini 2.0 Flash)...");
 
-        const uploadResponse = await fileManager.uploadFile(tempFilePath, {
-            mimeType: file.type,
-            displayName: file.name,
-        });
-
-        // Clean up temp file
-        fs.unlinkSync(tempFilePath);
-
-        // Wait for processing
-        let fileRecord = await fileManager.getFile(uploadResponse.file.name);
-        while (fileRecord.state === FileState.PROCESSING) {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-            fileRecord = await fileManager.getFile(uploadResponse.file.name);
-        }
-
-        if (fileRecord.state === FileState.FAILED) {
-            throw new Error("Video processing failed");
-        }
-
-        // 2. Transcribe with Gemini
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-        const result = await model.generateContent([
+            const transcriptionPrompt = `
+            Transcribe this entire video accurately.
+            
+            For the transcript:
+            - Include speaker labels if multiple speakers are detected (e.g., "Speaker 1:", "Speaker 2:")
+            - Add paragraph breaks where there are natural pauses or topic changes
+            - Maintain the exact words spoken, including filler words like "um", "uh" if present
+            
+            For the SRT:
+            - Use standard SRT format with sequential numbering
+            - Each subtitle should be 1-3 lines max
+            - Timestamps should be accurate in HH:MM:SS,mmm format
+            - Keep each caption to about 42 characters per line for readability
+            
+            Return a JSON object with two fields:
             {
-                fileData: {
-                    mimeType: uploadResponse.file.mimeType,
-                    fileUri: uploadResponse.file.uri,
-                },
-            },
-            {
-                text: `Transcribe this video.
-        
-        Provide two outputs in a JSON object:
-        1. **transcript**: The full transcript as a continuous text with paragraph breaks where appropriate.
-        2. **srt**: The transcript formatted as a valid SRT file string (SubRip Subtitle format). Ensure timestamps are accurate.
+                "transcript": "The full transcript as continuous text with paragraph breaks",
+                "srt": "The complete SRT file content as a string"
+            }
+            
+            Do not include any markdown formatting. Just the raw JSON.
+            `;
 
-        Do not include markdown formatting like \`\`\`json. Just the raw JSON.
-        `
-            },
-        ]);
+            const result = await vertexModel.generateContent({
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { fileData: { mimeType: mimeType || "video/mp4", fileUri: fileUri } },
+                        { text: transcriptionPrompt }
+                    ]
+                }],
+            });
 
-        const responseText = result.response.text();
-        let data;
-        try {
-            const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-            data = JSON.parse(cleanedText);
-        } catch (e) {
-            console.error("Failed to parse transcription JSON", e);
-            return NextResponse.json({ error: "Failed to parse transcription response", raw: responseText }, { status: 500 });
+            const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            console.log("Transcription complete, response length:", responseText.length);
+
+            // Parse the response
+            let data;
+            try {
+                const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+                data = JSON.parse(cleanedText);
+            } catch (e) {
+                console.error("Failed to parse transcription JSON, attempting fallback", e);
+                // Fallback: treat entire response as transcript
+                data = {
+                    transcript: responseText,
+                    srt: ""
+                };
+            }
+
+            // Optional Step 2: Use Gemini 3 to improve/format the transcript
+            // (Skipped for now since Vertex AI already produces good results)
+
+            return NextResponse.json({
+                success: true,
+                transcript: data.transcript,
+                srt: data.srt
+            });
+
+        } else {
+            return NextResponse.json({
+                error: "Server configuration error: Vertex AI not configured for GCS files."
+            }, { status: 500 });
         }
-
-        return NextResponse.json({ success: true, transcript: data.transcript, srt: data.srt });
 
     } catch (error: any) {
         console.error("Transcription error:", error);
         return NextResponse.json({
-            error: "Internal Server Error",
+            error: "Transcription failed",
             details: error.message || String(error)
         }, { status: 500 });
     }
