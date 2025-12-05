@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { vertexModel, isVertexAIConfigured } from "@/lib/gemini";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
-// In-memory storage (resets on cold start, but works for demo)
-// For production, you'd want a proper database
-declare global {
-    var tiktokHistory: any[];
+// Initialize Firebase Admin
+if (!getApps().length) {
+    try {
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+            const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+            initializeApp({
+                credential: cert(credentials),
+                projectId: process.env.GOOGLE_CLOUD_PROJECT || credentials.project_id,
+            });
+        }
+    } catch (e) {
+        console.error("Failed to initialize Firebase Admin:", e);
+    }
 }
 
-if (!global.tiktokHistory) {
-    global.tiktokHistory = [];
-}
+const db = getApps().length > 0 ? getFirestore() : null;
 
 export async function POST(req: NextRequest) {
     try {
@@ -55,19 +64,23 @@ Do not include markdown formatting like \`\`\`json.` }
                 analysis = { raw: analysisText };
             }
 
-            // Save to in-memory storage
+            // Save to Firestore
             const newEntry = {
-                id: Date.now().toString(),
                 fileUri: fileUri,
                 analysis,
                 stats: { likes: Number(likes), saves: Number(saves), comments: Number(comments), shares: Number(shares) },
                 timestamp: new Date().toISOString(),
+                createdAt: new Date(),
             };
 
-            global.tiktokHistory.push(newEntry);
-            console.log("Saved to memory, total entries:", global.tiktokHistory.length);
-
-            return NextResponse.json({ success: true, entry: newEntry });
+            if (db) {
+                const docRef = await db.collection("tiktok_history").add(newEntry);
+                console.log("Saved to Firestore with ID:", docRef.id);
+                return NextResponse.json({ success: true, entry: { id: docRef.id, ...newEntry } });
+            } else {
+                console.log("Firestore not available, returning without persistence");
+                return NextResponse.json({ success: true, entry: { id: Date.now().toString(), ...newEntry } });
+            }
 
         } else {
             return NextResponse.json({

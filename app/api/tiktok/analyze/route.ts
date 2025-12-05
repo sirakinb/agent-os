@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { vertexModel, isVertexAIConfigured } from "@/lib/gemini";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
-// Reference same global storage
-declare global {
-    var tiktokHistory: any[];
+// Initialize Firebase Admin
+if (!getApps().length) {
+    try {
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+            const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+            initializeApp({
+                credential: cert(credentials),
+                projectId: process.env.GOOGLE_CLOUD_PROJECT || credentials.project_id,
+            });
+        }
+    } catch (e) {
+        console.error("Failed to initialize Firebase Admin:", e);
+    }
 }
 
-if (!global.tiktokHistory) {
-    global.tiktokHistory = [];
-}
+const db = getApps().length > 0 ? getFirestore() : null;
 
 export async function POST(req: NextRequest) {
     try {
@@ -18,9 +28,21 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No file URI provided" }, { status: 400 });
         }
 
-        // Get history from memory
-        const history = global.tiktokHistory || [];
-        console.log(`Loaded ${history.length} videos from memory`);
+        // Load History from Firestore
+        let history: any[] = [];
+        if (db) {
+            try {
+                const snapshot = await db.collection("tiktok_history")
+                    .orderBy("createdAt", "desc")
+                    .limit(20)
+                    .get();
+
+                history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log(`Loaded ${history.length} videos from Firestore`);
+            } catch (e) {
+                console.warn("Could not load history from Firestore:", e);
+            }
+        }
 
         // Sort by engagement score and get top performers
         const topPerformers = history
