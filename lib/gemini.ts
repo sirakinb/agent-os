@@ -4,7 +4,7 @@ import { GoogleAIFileManager } from "@google/generative-ai/server";
 import { writeFileSync } from "fs";
 import { join } from "path";
 // Import the new Gen AI SDK
-import { Client } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 // Vertex AI configuration - for production with Firebase Storage GCS URIs
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || "";
@@ -47,7 +47,7 @@ const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
 try {
     console.log("Initializing Gen AI Client with API Key length:", apiKey.length);
     // Initialize with API Key for Google AI Studio access (Gemini 3)
-    genaiClient = new Client({
+    genaiClient = new GoogleGenAI({
         apiKey: apiKey,
     });
     console.log("Gen AI Client initialized (Google AI Studio - Gemini 3 Ready)");
