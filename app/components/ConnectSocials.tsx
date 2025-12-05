@@ -79,7 +79,7 @@ export default function ConnectSocials() {
               const igAccounts = (accountsData.accounts || []).filter(
                 (a: Account) => a.platform === "instagram"
               );
-              
+
               // If we found a connected account, close popup and refresh
               if (igAccounts.length > 0) {
                 clearInterval(pollTimer);
@@ -253,17 +253,9 @@ export default function ConnectSocials() {
                     className="bg-neutral-950/50 border border-neutral-800 rounded-2xl p-5 flex items-center justify-between"
                   >
                     <div className="flex items-center gap-4">
-                      {account.profilePicture ? (
-                        <img
-                          src={account.profilePicture}
-                          alt={account.displayName || account.username || ""}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-500 rounded-full flex items-center justify-center">
-                          <Instagram className="w-6 h-6 text-white" />
-                        </div>
-                      )}
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Instagram className="w-6 h-6 text-white" />
+                      </div>
                       <div>
                         <h3 className="font-semibold text-white">
                           {account.displayName || account.username || "Instagram Account"}
