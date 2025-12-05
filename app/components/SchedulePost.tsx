@@ -19,6 +19,7 @@ import {
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { uploadToFirebaseStorage, getPublicUrl, UploadProgress } from "@/lib/storage";
 
 type Account = {
   _id: string;
@@ -85,28 +86,26 @@ export default function SchedulePost() {
 
       setMediaFiles((prev) => [...prev, ...newFiles]);
 
-      // Upload each file to get URLs
+      // Upload each file to Firebase Storage first, then use public URL
       for (let i = 0; i < newFiles.length; i++) {
         const file = newFiles[i];
         try {
-          const formData = new FormData();
-          formData.append("file", file.file);
+          // Upload to Firebase Storage
+          const { storagePath, downloadUrl } = await uploadToFirebaseStorage(
+            file.file,
+            (progress: UploadProgress) => {
+              // Could show upload progress per file here
+              console.log(`Upload progress for ${file.file.name}: ${progress.progress}%`);
+            }
+          );
 
-          const response = await fetch("/api/social/media", {
-            method: "POST",
-            body: formData,
-          });
-
-          if (!response.ok) throw new Error("Upload failed");
-
-          const data = await response.json();
-          // GetLate returns { files: [{ url, type, ... }] }
-          const uploadedUrl = data.files?.[0]?.url || data.url;
+          // Use the public download URL
+          const publicUrl = downloadUrl;
 
           setMediaFiles((prev) =>
             prev.map((f) =>
               f.preview === file.preview
-                ? { ...f, uploadedUrl, isUploading: false }
+                ? { ...f, uploadedUrl: publicUrl, isUploading: false }
                 : f
             )
           );
