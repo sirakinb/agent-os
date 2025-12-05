@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileVideo, Sparkles, Plus, TrendingUp, MessageSquare, Save, Share2, Heart, Type } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { uploadToFirebaseStorage, UploadProgress } from "@/lib/storage";
 
 export default function TikTokEnhance() {
     const [activeTab, setActiveTab] = useState<"train" | "analyze">("train");
     const [file, setFile] = useState<File | null>(null);
-    const [status, setStatus] = useState<"idle" | "processing" | "done">("idle");
+    const [status, setStatus] = useState<"idle" | "uploading" | "processing" | "done">("idle");
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [result, setResult] = useState<any>(null);
 
     // Stats for Training
@@ -33,58 +35,118 @@ export default function TikTokEnhance() {
         maxFiles: 1
     });
 
+    const uploadAndGetUri = async (): Promise<{ fileUri: string; mimeType: string; isGcsUri: boolean }> => {
+        if (!file) throw new Error("No file selected");
+
+        // Step 1: Upload to Firebase Storage
+        setStatus("uploading");
+        setUploadProgress(0);
+
+        console.log("Uploading to Firebase Storage...");
+        const { storagePath } = await uploadToFirebaseStorage(file, (progress: UploadProgress) => {
+            setUploadProgress(Math.round(progress.progress));
+        });
+
+        console.log("Firebase upload complete, storage path:", storagePath);
+
+        // Step 2: Register with backend to get GCS URI
+        const uploadRes = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                storagePath,
+                fileName: file.name,
+                mimeType: file.type,
+            }),
+        });
+
+        if (!uploadRes.ok) {
+            throw new Error("Failed to register upload");
+        }
+
+        const uploadData = await uploadRes.json();
+        console.log("Upload registered, fileUri:", uploadData.fileUri);
+
+        return {
+            fileUri: uploadData.fileUri,
+            mimeType: uploadData.mimeType,
+            isGcsUri: uploadData.isGcsUri,
+        };
+    };
+
     const handleTrain = async () => {
         if (!file) return;
-        setStatus("processing");
+
         try {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("likes", stats.likes);
-            formData.append("saves", stats.saves);
-            formData.append("comments", stats.comments);
-            formData.append("shares", stats.shares);
+            const { fileUri, mimeType, isGcsUri } = await uploadAndGetUri();
+
+            setStatus("processing");
 
             const res = await fetch("/api/tiktok/train", {
                 method: "POST",
-                body: formData,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fileUri,
+                    mimeType,
+                    isGcsUri,
+                    stats: {
+                        likes: stats.likes,
+                        saves: stats.saves,
+                        comments: stats.comments,
+                        shares: stats.shares,
+                    },
+                }),
             });
 
             if (!res.ok) {
                 const errorData = await res.json();
                 throw new Error(errorData.details || "Training failed");
             }
-            const data = await res.json();
+
+            await res.json();
             toast.success("Video added to Knowledge Base!");
             setFile(null);
             setStats({ likes: "", saves: "", comments: "", shares: "" });
+            setStatus("idle");
+
         } catch (error: any) {
             console.error(error);
             toast.error(error.message || "Something went wrong");
-        } finally {
             setStatus("idle");
         }
     };
 
     const handleAnalyze = async () => {
         if (!file) return;
-        setStatus("processing");
+
         try {
-            const formData = new FormData();
-            formData.append("file", file);
+            const { fileUri, mimeType, isGcsUri } = await uploadAndGetUri();
+
+            setStatus("processing");
 
             const res = await fetch("/api/tiktok/analyze", {
                 method: "POST",
-                body: formData,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fileUri,
+                    mimeType,
+                    isGcsUri,
+                }),
             });
 
-            if (!res.ok) throw new Error("Analysis failed");
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.details || "Analysis failed");
+            }
+
             const data = await res.json();
             setResult(data.analysis);
             setStatus("done");
             toast.success("Analysis complete!");
-        } catch (error) {
+
+        } catch (error: any) {
             console.error(error);
-            toast.error("Analysis failed");
+            toast.error(error.message || "Analysis failed");
             setStatus("idle");
         }
     };
@@ -135,7 +197,50 @@ export default function TikTokEnhance() {
                     </div>
 
                     <AnimatePresence mode="wait">
-                        {status === "processing" ? (
+                        {status === "uploading" ? (
+                            <motion.div
+                                key="uploading"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="py-20 text-center"
+                            >
+                                <div className="relative w-24 h-24 mx-auto mb-8">
+                                    <svg className="w-full h-full transform -rotate-90">
+                                        <circle
+                                            cx="48"
+                                            cy="48"
+                                            r="40"
+                                            stroke="currentColor"
+                                            strokeWidth="8"
+                                            fill="none"
+                                            className="text-neutral-800"
+                                        />
+                                        <circle
+                                            cx="48"
+                                            cy="48"
+                                            r="40"
+                                            stroke="currentColor"
+                                            strokeWidth="8"
+                                            fill="none"
+                                            strokeDasharray={251.2}
+                                            strokeDashoffset={251.2 - (251.2 * uploadProgress) / 100}
+                                            className="text-indigo-500 transition-all duration-300"
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className="text-2xl font-bold text-white">{uploadProgress}%</span>
+                                    </div>
+                                </div>
+                                <h2 className="text-2xl font-semibold text-white mb-2">
+                                    Uploading video...
+                                </h2>
+                                <p className="text-neutral-400">
+                                    {file?.name}
+                                </p>
+                            </motion.div>
+                        ) : status === "processing" ? (
                             <motion.div
                                 key="processing"
                                 initial={{ opacity: 0 }}
