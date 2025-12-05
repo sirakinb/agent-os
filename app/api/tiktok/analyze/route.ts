@@ -1,9 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { vertexModel, isVertexAIConfigured } from "@/lib/gemini";
-import fs from "fs";
-import path from "path";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
-const DATA_FILE_PATH = path.join(process.cwd(), "data", "tiktok_history.json");
+// Initialize Firebase Admin
+if (!getApps().length) {
+    try {
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+            const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+            initializeApp({
+                credential: cert(credentials),
+                projectId: process.env.GOOGLE_CLOUD_PROJECT || credentials.project_id,
+            });
+        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            initializeApp({
+                projectId: process.env.GOOGLE_CLOUD_PROJECT,
+            });
+        }
+    } catch (e) {
+        console.error("Failed to initialize Firebase Admin:", e);
+    }
+}
+
+const db = getFirestore();
 
 export async function POST(req: NextRequest) {
     try {
@@ -13,18 +32,21 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No file URI provided" }, { status: 400 });
         }
 
-        // Load History and Select Top Performers
-        let history = [];
+        // Load History from Firestore
+        let history: any[] = [];
         try {
-            if (fs.existsSync(DATA_FILE_PATH)) {
-                const fileContent = fs.readFileSync(DATA_FILE_PATH, "utf-8");
-                history = JSON.parse(fileContent);
-            }
+            const snapshot = await db.collection("tiktok_history")
+                .orderBy("createdAt", "desc")
+                .limit(20)
+                .get();
+
+            history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            console.log(`Loaded ${history.length} videos from Firestore`);
         } catch (e) {
-            console.warn("Could not parse history file.");
+            console.warn("Could not load history from Firestore:", e);
         }
 
-        // Sort by engagement score
+        // Sort by engagement score and get top performers
         const topPerformers = history
             .map((entry: any) => ({
                 ...entry,

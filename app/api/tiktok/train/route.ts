@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { vertexModel, isVertexAIConfigured } from "@/lib/gemini";
-import fs from "fs";
-import path from "path";
-import { v4 as uuidv4 } from 'uuid';
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
-const DATA_FILE_PATH = path.join(process.cwd(), "data", "tiktok_history.json");
+// Initialize Firebase Admin
+if (!getApps().length) {
+    try {
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+            const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+            initializeApp({
+                credential: cert(credentials),
+                projectId: process.env.GOOGLE_CLOUD_PROJECT || credentials.project_id,
+            });
+        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            initializeApp({
+                projectId: process.env.GOOGLE_CLOUD_PROJECT,
+            });
+        }
+    } catch (e) {
+        console.error("Failed to initialize Firebase Admin:", e);
+    }
+}
+
+const db = getFirestore();
 
 export async function POST(req: NextRequest) {
     try {
@@ -50,36 +68,19 @@ Do not include markdown formatting like \`\`\`json.` }
                 analysis = { raw: analysisText };
             }
 
-            // Save to History
+            // Save to Firestore
             const newEntry = {
-                id: uuidv4(),
                 fileUri: fileUri,
                 analysis,
                 stats: { likes: Number(likes), saves: Number(saves), comments: Number(comments), shares: Number(shares) },
                 timestamp: new Date().toISOString(),
+                createdAt: new Date(),
             };
 
-            let history = [];
-            try {
-                if (fs.existsSync(DATA_FILE_PATH)) {
-                    const fileContent = fs.readFileSync(DATA_FILE_PATH, "utf-8");
-                    history = JSON.parse(fileContent);
-                }
-            } catch (e) {
-                console.warn("Could not parse history file, starting fresh.");
-            }
+            const docRef = await db.collection("tiktok_history").add(newEntry);
+            console.log("Saved to Firestore with ID:", docRef.id);
 
-            history.push(newEntry);
-
-            // Ensure data directory exists
-            const dataDir = path.dirname(DATA_FILE_PATH);
-            if (!fs.existsSync(dataDir)) {
-                fs.mkdirSync(dataDir, { recursive: true });
-            }
-
-            fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(history, null, 2));
-
-            return NextResponse.json({ success: true, entry: newEntry });
+            return NextResponse.json({ success: true, entry: { id: docRef.id, ...newEntry } });
 
         } else {
             return NextResponse.json({
