@@ -35,13 +35,22 @@ type Post = {
   createdAt: string;
 };
 
-// Helper to get first media URL from post
-const getPostThumbnail = (post: Post): string | null => {
-  if (post.mediaUrls && post.mediaUrls.length > 0) {
-    return post.mediaUrls[0];
-  }
+// Helper to get first media from post
+const getPostMedia = (post: Post): { url: string; type: "image" | "video" } | null => {
   if (post.mediaItems && post.mediaItems.length > 0) {
-    return post.mediaItems[0].url;
+    const item = post.mediaItems[0];
+    return {
+      url: item.url,
+      type: item.type.startsWith("video") ? "video" : "image"
+    };
+  }
+  if (post.mediaUrls && post.mediaUrls.length > 0) {
+    const url = post.mediaUrls[0];
+    const isVideo = url.match(/\.(mp4|mov|webm)$/i);
+    return {
+      url,
+      type: isVideo ? "video" : "image"
+    };
   }
   return null;
 };
@@ -387,18 +396,41 @@ export default function ContentCalendar() {
                     >
                       {/* Media Preview */}
                       <div className="w-16 h-16 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
-                        {getPostThumbnail(post) && !failedImages.has(post._id) ? (
-                          <img
-                            src={getPostThumbnail(post)!}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            onError={() => setFailedImages(prev => new Set(prev).add(post._id))}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-neutral-800">
-                            <ImageIcon className="w-6 h-6 text-neutral-600" />
-                          </div>
-                        )}
+                        {(() => {
+                          const media = getPostMedia(post);
+                          if (!media || failedImages.has(post._id)) {
+                            return (
+                              <div className="w-full h-full flex items-center justify-center bg-neutral-800">
+                                <ImageIcon className="w-6 h-6 text-neutral-600" />
+                              </div>
+                            );
+                          }
+
+                          if (media.type === "video") {
+                            return (
+                              <video
+                                src={media.url}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                                onLoadedData={(e) => {
+                                  // Force show first frame
+                                  e.currentTarget.currentTime = 0.1;
+                                }}
+                                onError={() => setFailedImages(prev => new Set(prev).add(post._id))}
+                              />
+                            );
+                          }
+
+                          return (
+                            <img
+                              src={media.url}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              onError={() => setFailedImages(prev => new Set(prev).add(post._id))}
+                            />
+                          );
+                        })()}
                       </div>
 
                       {/* Content */}
@@ -465,26 +497,44 @@ export default function ContentCalendar() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Media */}
-              {getPostThumbnail(selectedPost) && !failedImages.has(selectedPost._id) ? (
-                <div className="aspect-square bg-neutral-950 relative">
-                  <img
-                    src={getPostThumbnail(selectedPost)!}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={() => setFailedImages(prev => new Set(prev).add(selectedPost._id))}
-                  />
-                  {((selectedPost.mediaUrls && selectedPost.mediaUrls.length > 1) ||
-                    (selectedPost.mediaItems && selectedPost.mediaItems.length > 1)) && (
-                      <div className="absolute bottom-4 right-4 bg-black/60 px-3 py-1 rounded-full text-xs text-white">
-                        +{(selectedPost.mediaUrls?.length || selectedPost.mediaItems?.length || 1) - 1} more
-                      </div>
-                    )}
-                </div>
-              ) : (
-                <div className="aspect-square bg-neutral-950 flex items-center justify-center">
-                  <ImageIcon className="w-12 h-12 text-neutral-700" />
-                </div>
-              )}
+              {(() => {
+                const media = selectedPost ? getPostMedia(selectedPost) : null;
+
+                if (media && !failedImages.has(selectedPost!._id)) {
+                  return (
+                    <div className="aspect-square bg-neutral-950 relative">
+                      {media.type === "video" ? (
+                        <video
+                          src={media.url}
+                          className="w-full h-full object-cover"
+                          controls
+                          onError={() => setFailedImages(prev => new Set(prev).add(selectedPost!._id))}
+                        />
+                      ) : (
+                        <img
+                          src={media.url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={() => setFailedImages(prev => new Set(prev).add(selectedPost!._id))}
+                        />
+                      )}
+
+                      {((selectedPost!.mediaUrls && selectedPost!.mediaUrls.length > 1) ||
+                        (selectedPost!.mediaItems && selectedPost!.mediaItems.length > 1)) && (
+                          <div className="absolute bottom-4 right-4 bg-black/60 px-3 py-1 rounded-full text-xs text-white">
+                            +{(selectedPost!.mediaUrls?.length || selectedPost!.mediaItems?.length || 1) - 1} more
+                          </div>
+                        )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="aspect-square bg-neutral-950 flex items-center justify-center">
+                    <ImageIcon className="w-12 h-12 text-neutral-700" />
+                  </div>
+                );
+              })()}
 
               <div className="p-6">
                 {/* Header */}
@@ -613,18 +663,40 @@ export default function ContentCalendar() {
 
                         {/* Media Preview */}
                         <div className="w-12 h-12 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
-                          {getPostThumbnail(post) && !failedImages.has(post._id) ? (
-                            <img
-                              src={getPostThumbnail(post)!}
-                              alt=""
-                              className="w-full h-full object-cover"
-                              onError={() => setFailedImages(prev => new Set(prev).add(post._id))}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-neutral-800">
-                              <ImageIcon className="w-5 h-5 text-neutral-600" />
-                            </div>
-                          )}
+                          {(() => {
+                            const media = getPostMedia(post);
+                            if (!media || failedImages.has(post._id)) {
+                              return (
+                                <div className="w-full h-full flex items-center justify-center bg-neutral-800">
+                                  <ImageIcon className="w-5 h-5 text-neutral-600" />
+                                </div>
+                              );
+                            }
+
+                            if (media.type === "video") {
+                              return (
+                                <video
+                                  src={media.url}
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  playsInline
+                                  onLoadedData={(e) => {
+                                    e.currentTarget.currentTime = 0.1;
+                                  }}
+                                  onError={() => setFailedImages(prev => new Set(prev).add(post._id))}
+                                />
+                              );
+                            }
+
+                            return (
+                              <img
+                                src={media.url}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={() => setFailedImages(prev => new Set(prev).add(post._id))}
+                              />
+                            );
+                          })()}
                         </div>
 
                         {/* Content */}
