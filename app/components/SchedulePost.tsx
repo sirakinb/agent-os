@@ -143,8 +143,14 @@ export default function SchedulePost() {
       return;
     }
 
-    if (!caption.trim() && mediaFiles.length === 0) {
+    if (!caption.trim() && mediaFiles.length === 0 && postType !== "story") {
       toast.error("Please add a caption or media");
+      return;
+    }
+
+    // Stories only need media, not caption
+    if (postType === "story" && mediaFiles.length === 0) {
+      toast.error("Stories require an image or video");
       return;
     }
 
