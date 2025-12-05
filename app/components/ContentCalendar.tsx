@@ -31,7 +31,19 @@ type Post = {
     username?: string;
   }[];
   mediaUrls?: string[];
+  mediaItems?: { url: string; type: string }[];
   createdAt: string;
+};
+
+// Helper to get first media URL from post
+const getPostThumbnail = (post: Post): string | null => {
+  if (post.mediaUrls && post.mediaUrls.length > 0) {
+    return post.mediaUrls[0];
+  }
+  if (post.mediaItems && post.mediaItems.length > 0) {
+    return post.mediaItems[0].url;
+  }
+  return null;
 };
 
 type ViewMode = "month" | "week" | "list";
@@ -370,9 +382,9 @@ export default function ContentCalendar() {
                     >
                       {/* Media Preview */}
                       <div className="w-16 h-16 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
-                        {post.mediaUrls && post.mediaUrls.length > 0 ? (
+                        {getPostThumbnail(post) ? (
                           <img
-                            src={post.mediaUrls[0]}
+                            src={getPostThumbnail(post)!}
                             alt=""
                             className="w-full h-full object-cover"
                           />
@@ -400,9 +412,26 @@ export default function ContentCalendar() {
                         </div>
                       </div>
 
-                      {/* Status */}
-                      <div className="flex-shrink-0">
+                      {/* Status + Cancel Button */}
+                      <div className="flex items-center gap-3 flex-shrink-0">
                         {getStatusBadge(post.status)}
+                        {post.status === "scheduled" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deletePost(post._id);
+                            }}
+                            disabled={deletingId === post._id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/20 transition-colors"
+                          >
+                            {deletingId === post._id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
+                            Cancel
+                          </button>
+                        )}
                       </div>
                     </motion.div>
                   ))}
@@ -430,18 +459,19 @@ export default function ContentCalendar() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Media */}
-              {selectedPost.mediaUrls && selectedPost.mediaUrls.length > 0 && (
+              {getPostThumbnail(selectedPost) && (
                 <div className="aspect-square bg-neutral-950 relative">
                   <img
-                    src={selectedPost.mediaUrls[0]}
+                    src={getPostThumbnail(selectedPost)!}
                     alt=""
                     className="w-full h-full object-cover"
                   />
-                  {selectedPost.mediaUrls.length > 1 && (
-                    <div className="absolute bottom-4 right-4 bg-black/60 px-3 py-1 rounded-full text-xs text-white">
-                      +{selectedPost.mediaUrls.length - 1} more
-                    </div>
-                  )}
+                  {((selectedPost.mediaUrls && selectedPost.mediaUrls.length > 1) ||
+                    (selectedPost.mediaItems && selectedPost.mediaItems.length > 1)) && (
+                      <div className="absolute bottom-4 right-4 bg-black/60 px-3 py-1 rounded-full text-xs text-white">
+                        +{(selectedPost.mediaUrls?.length || selectedPost.mediaItems?.length || 1) - 1} more
+                      </div>
+                    )}
                 </div>
               )}
 
@@ -572,9 +602,9 @@ export default function ContentCalendar() {
 
                         {/* Media Preview */}
                         <div className="w-12 h-12 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
-                          {post.mediaUrls && post.mediaUrls.length > 0 ? (
+                          {getPostThumbnail(post) ? (
                             <img
-                              src={post.mediaUrls[0]}
+                              src={getPostThumbnail(post)!}
                               alt=""
                               className="w-full h-full object-cover"
                             />
