@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 const GETLATE_API_KEY = process.env.GETLATE_API_KEY;
 const GETLATE_BASE_URL = "https://getlate.dev/api/v1";
 
+import { db } from "@/lib/firebase";
+import { collection, doc, setDoc, getDocs } from "firebase/firestore";
+
 export async function POST(request: NextRequest) {
   if (!GETLATE_API_KEY) {
     return NextResponse.json(
@@ -107,6 +110,24 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
+
+    // Save to Firestore to preserve media URLs
+    if (db && data._id) {
+      try {
+        await setDoc(doc(db, "posts", data._id), {
+          ...postPayload,
+          _id: data._id,
+          status: "scheduled",
+          createdAt: new Date().toISOString(),
+          mediaItems: mediaItems || [], // Ensure we save our media
+          postType: postType || "feed",
+        });
+        console.log("Saved post to Firestore:", data._id);
+      } catch (e) {
+        console.error("Error saving to Firestore:", e);
+      }
+    }
+
     return NextResponse.json(data);
   } catch (error) {
     console.error("Error creating post:", error);
@@ -152,7 +173,35 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    let posts = data.posts || [];
+
+    // Enrich with Firestore data to restore missing media
+    if (db) {
+      try {
+        const querySnapshot = await getDocs(collection(db, "posts"));
+        const localPostsMap = new Map();
+        querySnapshot.forEach((doc) => {
+          localPostsMap.set(doc.id, doc.data());
+        });
+
+        posts = posts.map((p: any) => {
+          const localPost = localPostsMap.get(p._id);
+          if (localPost && localPost.mediaItems && localPost.mediaItems.length > 0) {
+            // Merge local media data with GetLate status
+            return {
+              ...p,
+              mediaItems: localPost.mediaItems,
+              mediaUrls: localPost.mediaItems.map((m: any) => m.url),
+            };
+          }
+          return p;
+        });
+      } catch (e) {
+        console.error("Error fetching from Firestore:", e);
+      }
+    }
+
+    return NextResponse.json({ ...data, posts });
   } catch (error) {
     console.error("Error fetching posts:", error);
     return NextResponse.json(
