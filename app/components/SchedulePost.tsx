@@ -19,7 +19,7 @@ import {
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { uploadToFirebaseStorage, getPublicUrl, UploadProgress } from "@/lib/storage";
+import { uploadToFirebaseStorage, UploadProgress } from "@/lib/storage";
 
 type Account = {
   _id: string;
