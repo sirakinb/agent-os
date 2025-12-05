@@ -1,28 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { vertexModel, isVertexAIConfigured } from "@/lib/gemini";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 
-// Initialize Firebase Admin
-if (!getApps().length) {
-    try {
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-            const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-            initializeApp({
-                credential: cert(credentials),
-                projectId: process.env.GOOGLE_CLOUD_PROJECT || credentials.project_id,
-            });
-        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-            initializeApp({
-                projectId: process.env.GOOGLE_CLOUD_PROJECT,
-            });
-        }
-    } catch (e) {
-        console.error("Failed to initialize Firebase Admin:", e);
-    }
+// In-memory storage (resets on cold start, but works for demo)
+// For production, you'd want a proper database
+declare global {
+    var tiktokHistory: any[];
 }
 
-const db = getFirestore();
+if (!global.tiktokHistory) {
+    global.tiktokHistory = [];
+}
 
 export async function POST(req: NextRequest) {
     try {
@@ -68,19 +55,19 @@ Do not include markdown formatting like \`\`\`json.` }
                 analysis = { raw: analysisText };
             }
 
-            // Save to Firestore
+            // Save to in-memory storage
             const newEntry = {
+                id: Date.now().toString(),
                 fileUri: fileUri,
                 analysis,
                 stats: { likes: Number(likes), saves: Number(saves), comments: Number(comments), shares: Number(shares) },
                 timestamp: new Date().toISOString(),
-                createdAt: new Date(),
             };
 
-            const docRef = await db.collection("tiktok_history").add(newEntry);
-            console.log("Saved to Firestore with ID:", docRef.id);
+            global.tiktokHistory.push(newEntry);
+            console.log("Saved to memory, total entries:", global.tiktokHistory.length);
 
-            return NextResponse.json({ success: true, entry: { id: docRef.id, ...newEntry } });
+            return NextResponse.json({ success: true, entry: newEntry });
 
         } else {
             return NextResponse.json({

@@ -1,28 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { vertexModel, isVertexAIConfigured } from "@/lib/gemini";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 
-// Initialize Firebase Admin
-if (!getApps().length) {
-    try {
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-            const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-            initializeApp({
-                credential: cert(credentials),
-                projectId: process.env.GOOGLE_CLOUD_PROJECT || credentials.project_id,
-            });
-        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-            initializeApp({
-                projectId: process.env.GOOGLE_CLOUD_PROJECT,
-            });
-        }
-    } catch (e) {
-        console.error("Failed to initialize Firebase Admin:", e);
-    }
+// Reference same global storage
+declare global {
+    var tiktokHistory: any[];
 }
 
-const db = getFirestore();
+if (!global.tiktokHistory) {
+    global.tiktokHistory = [];
+}
 
 export async function POST(req: NextRequest) {
     try {
@@ -32,19 +18,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No file URI provided" }, { status: 400 });
         }
 
-        // Load History from Firestore
-        let history: any[] = [];
-        try {
-            const snapshot = await db.collection("tiktok_history")
-                .orderBy("createdAt", "desc")
-                .limit(20)
-                .get();
-
-            history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            console.log(`Loaded ${history.length} videos from Firestore`);
-        } catch (e) {
-            console.warn("Could not load history from Firestore:", e);
-        }
+        // Get history from memory
+        const history = global.tiktokHistory || [];
+        console.log(`Loaded ${history.length} videos from memory`);
 
         // Sort by engagement score and get top performers
         const topPerformers = history
@@ -55,14 +31,16 @@ export async function POST(req: NextRequest) {
             .sort((a: any, b: any) => b.score - a.score)
             .slice(0, 5);
 
-        const contextDescription = topPerformers.map((video: any, index: number) => `
+        const contextDescription = topPerformers.length > 0
+            ? topPerformers.map((video: any, index: number) => `
 Example ${index + 1} (High Performing):
 - Hook: ${video.analysis?.hook || 'N/A'}
 - Topic: ${video.analysis?.topic || 'N/A'}
 - Style: ${video.analysis?.style || 'N/A'}
 - Key Elements: ${JSON.stringify(video.analysis?.keyElements || [])}
 - Stats: ${JSON.stringify(video.stats || {})}
-`).join("\n");
+`).join("\n")
+            : "No previous videos in knowledge base yet. Analyze this video independently and provide your best recommendations.";
 
         // Use Vertex AI to analyze the new video
         if ((isGcsUri || fileUri.startsWith("gs://")) && isVertexAIConfigured() && vertexModel) {
@@ -77,10 +55,10 @@ Example ${index + 1} (High Performing):
                             text: `You are an expert TikTok strategist. 
 
 Here is context on my past top-performing videos:
-${contextDescription || "No previous videos in knowledge base yet."}
+${contextDescription}
 
 Analyze this NEW video I just uploaded. 
-Based on the patterns of my successful videos above, provide actionable feedback.
+Based on the patterns of my successful videos above (if any), provide actionable feedback.
 
 Generate a JSON object with the following keys:
 1. **feedback**: Specific critique on the hook, pacing, and visual style compared to my best work.
