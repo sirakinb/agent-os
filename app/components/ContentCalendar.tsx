@@ -73,6 +73,7 @@ export default function ContentCalendar() {
       const response = await fetch("/api/social/posts?platform=instagram&limit=100");
       if (!response.ok) throw new Error("Failed to fetch posts");
       const data = await response.json();
+      console.log("Fetched posts:", data.posts); // Debug log
       setPosts(data.posts || []);
     } catch (error) {
       console.error("Error fetching posts:", error);
