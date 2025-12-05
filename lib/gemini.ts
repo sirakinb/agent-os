@@ -4,7 +4,7 @@ import { GoogleAIFileManager } from "@google/generative-ai/server";
 import { writeFileSync } from "fs";
 import { join } from "path";
 // Import the new Gen AI SDK
-const { Client } = require("@google/genai");
+import { Client } from "@google/genai";
 
 // Vertex AI configuration - for production with Firebase Storage GCS URIs
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || "";
